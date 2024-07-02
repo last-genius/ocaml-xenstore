@@ -58,7 +58,7 @@ module Node = struct
       match l with
       | [] -> []
       | h :: tl when h.name = child.name -> nchild :: tl
-      | h :: tl -> h :: replace_one_in_list tl
+      | h :: tl -> h :: (replace_one_in_list [@tailcall]) tl
     in
     { node with children = replace_one_in_list node.children }
 
@@ -68,7 +68,7 @@ module Node = struct
       match l with
       | [] -> raise Not_found
       | h :: tl when h.name = sym -> tl
-      | h :: tl -> h :: delete_one_in_list tl
+      | h :: tl -> h :: (delete_one_in_list [@tailcall]) tl
     in
     { node with children = delete_one_in_list node.children }
 
