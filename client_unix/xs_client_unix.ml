@@ -309,25 +309,29 @@ functor
     let rpc_dir hint h path =
       try rpc hint h Request.(PathOp (path, Directory)) Unmarshal.list
       with Error "E2BIG" ->
-        let rec read_part data generation =
-          let offset = String.length data in
+        let data = Buffer.create 16 in
+        let rec read_part generation =
+          let offset = Buffer.length data in
           let out = directory_part h path offset in
           let i = String.index out '\000' in
           let new_generation = String.sub out 0 i in
-          let new_data = String.sub out (i + 1) (String.length out - i - 1) in
+
           (* Node's children changed, restart *)
-          if data <> "" && new_generation <> generation then read_part "" ""
-          else
-            let data = data ^ new_data in
-            let l = String.length data in
-            if l < 2 then ""
-            else if String.ends_with ~suffix:"\000\000" data then
-              (* last packet *)
-              String.sub data 0 (l - 2)
-            else read_part data new_generation
+          if offset <> 0 && new_generation <> generation then (
+            Buffer.clear data;
+            read_part "")
+          else Buffer.add_substring data out (i + 1) (String.length out - i - 1);
+
+          let l = Buffer.length data in
+
+          if l < 2 then Buffer.clear data
+          else if String.ends_with ~suffix:"\000\000" (Buffer.contents data)
+          then (* last packet *)
+            Buffer.truncate data (l - 2)
+          else read_part new_generation
         in
-        let part = read_part "" "" in
-        String.split_on_char '\000' part
+        read_part "";
+        String.split_on_char '\000' (Buffer.contents data)
 
     let directory h path =
       rpc_dir "directory" (Xs_handle.accessed_path h path) path
